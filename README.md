@@ -86,4 +86,4 @@ This means:
 
 ---
 
-This approach robustly identifies **flat-on-flat** contact areas (like a pyramid base resting on a cube), avoids missing faces due to sparse vertex proximity, and allows simple control of sensitivity through the tolerance parameter `tol`.
+This approach identifies **flat-on-flat** contact areas (like a pyramid base resting on a cube), avoids missing faces due to sparse vertex proximity, and allows simple control of sensitivity through the tolerance parameter `tol`.
