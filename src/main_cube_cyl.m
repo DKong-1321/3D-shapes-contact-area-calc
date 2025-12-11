@@ -54,12 +54,12 @@ Npos = 2;
 T_cyl = repmat(eye(4), 1, 1, Npos);
 T_cyl(:,:,1) = eye(4);          % base pose
 T2 = eye(4);
-T2(1,4) = 5.0;                  % shift +5 mm in X
+T2(1,4) = 20.0;                  % shift +20 mm in X
 T_cyl(:,:,2) = T2;
 
 posLabels = { ...
     'Position 1: base (central contact)', ...
-    'Position 2: shifted +5 mm in X'};
+    'Position 2: shifted +20 mm in X'};
 
 cubeColor    = [0.8 0.8 0.8];
 cylBaseColor = [0.25 0.25 0.25];
