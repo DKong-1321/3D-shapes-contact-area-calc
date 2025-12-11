@@ -1,183 +1,132 @@
 % main_cube_cylinder.m
-% Time-dependent cube–cylinder contact demo using computeContactArea_STS
+% Cube–cylinder contact for two positions over a range of tolerances
 
 clear;
 clc;
 
-%% ====== FIGURE OUT PROJECT ROOT & PATHS ======
 scriptDir = fileparts(mfilename('fullpath'));
-
-% If main is in project root, model folder is here; if in src/, go up one level
 if exist(fullfile(scriptDir, 'model'), 'dir')
     projectRoot = scriptDir;
 else
-    projectRoot = fileparts(scriptDir);  % go up one level
+    projectRoot = fileparts(scriptDir);
 end
 
-% Add src (helpers, transforms, etc.) to path
 addpath(genpath(fullfile(projectRoot, 'src')));
 
-% Model directory at project root
 modelDir = fullfile(projectRoot, 'model');
 
-%% ================= USER SETTINGS =======================
-cubeFile     = fullfile(modelDir, '50mm cube 4 iterations.stl');
-cylFile      = fullfile(modelDir, 'cylinder 30mm diameter 4 it.stl');  % <- cylinder STL
+cubeFile = fullfile(modelDir, '50mm cube 4 iterations.stl');
+cylFile  = fullfile(modelDir, 'cylinder 30mm diameter 4 it.stl');
 
-tol = 0.25;  % contact tolerance (same units as STL, e.g. mm)
+tolList = [0.05 0.10 0.20 0.30 0.40 0.50];
 
 opts.sampleThreshold   = 0.2;
 opts.neighRadiusFactor = 5.0;
 opts.maxNeighbours     = 30;
 opts.roiExpandFactor   = 1.5;
 
-N        = 50;   % number of time steps
-maxShift = 5.0;  % mm, small slide left–right relative to base pose
-
-%% =============== LOAD & ALIGN REFERENCE MESHES =================
 [Fc, Vc] = loadStlMesh(cubeFile, 'cube');
 [Fs, Vs] = loadStlMesh(cylFile,  'cylinder');
 
-% Align cylinder ONCE in the base (reference) pose, same way as static script
 [Vs_aligned, cylShift] = placeCylinderOnCube(Vs, Vc);
 
-cubeRef_V     = Vc;           % reference cube vertices
-cylinderRef_V = Vs_aligned;   % reference cylinder vertices (already on cube)
+cubeRef_V     = Vc;
+cylinderRef_V = Vs_aligned;
 
 cubeRef     = buildBodyStruct(Fc, cubeRef_V);
 cylinderRef = buildBodyStruct(Fs, cylinderRef_V);
 
-fprintf('Cube:    %d verts, %d faces\n', size(Fc,1), size(cubeRef_V,1));
-fprintf('Cylinder: %d verts, %d faces\n', size(Fs,1), size(cylinderRef_V,1));
+fprintf('Cube:     %d faces, %d verts\n', size(Fc,1), size(cubeRef_V,1));
+fprintf('Cylinder: %d faces, %d verts\n', size(Fs,1), size(cylinderRef_V,1));
 
-%% =============== DEFINE TIME-DEPENDENT TRANSFORMS ==============
-% T_cube(:,:,k) and T_cyl(:,:,k) are world_from_body transforms
-T_cube = repmat(eye(4), 1, 1, N);   % cube fixed
+% mesh resolutions (average edge length)
+cubeEdge   = computeAverageEdgeLength(Fc, cubeRef_V);
+cylEdge    = computeAverageEdgeLength(Fs, cylinderRef_V);
+fprintf('Average edge length (cube):     %.4f mm\n', cubeEdge);
+fprintf('Average edge length (cylinder): %.4f mm\n', cylEdge);
 
-T_cyl  = repmat(eye(4), 1, 1, N);   % start as identity for all frames
+% master (cube) never moves: build KD-tree ONCE
+master = cubeRef;
+master.kdtree = KDTreeSearcher(master.triCentroid);
 
-for k = 1:N
-    alpha = (k-1)/(N-1);                 % 0 -> 1
-    dx    = (alpha - 0.5)*2*maxShift;    % -maxShift .. +maxShift
+Npos = 2;
 
-    T = eye(4);
-    T(1,4) = dx;                         % RELATIVE slide along X only
+T_cyl = repmat(eye(4), 1, 1, Npos);
+T_cyl(:,:,1) = eye(4);          % base pose
+T2 = eye(4);
+T2(1,4) = 5.0;                  % shift +5 mm in X
+T_cyl(:,:,2) = T2;
 
-    T_cyl(:,:,k) = T;
-end
+posLabels = { ...
+    'Position 1: base (central contact)', ...
+    'Position 2: shifted +5 mm in X'};
 
-%% =============== VISUALISATION SETUP ============================
-contactAreas = zeros(N,1);
+cubeColor    = [0.8 0.8 0.8];
+cylBaseColor = [0.25 0.25 0.25];
+contactColor = [0.0 1.0 0.0];
 
-% Figure 1: full geometry (cube + cylinder, contact highlighted)
-figFull = figure('Color','w');
-axFull  = gca; hold(axFull,'on'); axis(axFull,'equal');
-xlabel(axFull,'X'); ylabel(axFull,'Y'); zlabel(axFull,'Z');
-title(axFull,'Cube–cylinder contact over time');
-view(axFull,3); camlight(axFull); lighting(axFull,'gouraud');
-grid(axFull,'on');
+for p = 1:Npos
+    % build slave geometry ONCE per position
+    Vs_p = transformVertices(cylinderRef_V, T_cyl(:,:,p));
+    slaveTemplate = buildBodyStruct(Fs, Vs_p);
 
-hCube = patch('Faces', Fc, 'Vertices', cubeRef_V, ...
-              'FaceColor', [0.8 0.8 0.8], ...
+    for it = 1:numel(tolList)
+        tol = tolList(it);
+        fprintf('\n===== Tolerance = %.3f mm, %s =====\n', tol, posLabels{p});
+
+        slave = slaveTemplate;  % geometry is fixed for this position
+
+        [A_contact, contactMask] = computeContactArea_STS(slave, master, tol, opts);
+
+        fprintf('Contact area = %.6f mm^2, contact tris = %d\n', ...
+            A_contact, nnz(contactMask));
+
+        figName = sprintf('tol = %.3f, %s', tol, posLabels{p});
+        figure('Name', figName, 'Color','w');
+        ax = gca; hold(ax,'on');
+        axis(ax,'equal');
+        xlabel(ax,'X'); ylabel(ax,'Y'); zlabel(ax,'Z');
+        title(ax, sprintf('%s, tol = %.3f, A = %.4f mm^2', ...
+                          posLabels{p}, tol, A_contact));
+        view(ax,3);
+        camlight(ax);
+        lighting(ax,'gouraud');
+        grid(ax,'on');
+
+        % cube (fixed)
+        patch('Faces', Fc, 'Vertices', cubeRef_V, ...
+              'FaceColor', cubeColor, ...
               'EdgeColor', 'none', ...
               'FaceAlpha', 0.3, ...
-              'Parent', axFull);
+              'Parent', ax);
 
-hCyl  = patch('Faces', Fs, 'Vertices', cylinderRef_V, ...
-              'FaceColor', [0.2 0.2 1.0], ...
-              'EdgeColor', 'k', ...
-              'FaceAlpha', 0.9, ...
-              'Parent', axFull);
+        % cylinder with contact colouring
+        nFacesSlave = size(slave.F,1);
+        faceColors  = repmat(cylBaseColor, nFacesSlave, 1);
+        faceColors(contactMask,:) = repmat(contactColor, nnz(contactMask), 1);
 
-legend(axFull, {'Cube (master)','Cylinder (slave)'});
-
-% Figure 2: contact patch only (cylinder)
-figPatch = figure('Color','w');
-axPatch  = gca; hold(axPatch,'on'); axis(axPatch,'equal');
-xlabel(axPatch,'X'); ylabel(axPatch,'Y'); zlabel(axPatch,'Z');
-title(axPatch, 'Contact patch on cylinder');
-view(axPatch,3); camlight(axPatch); lighting(axPatch,'gouraud');
-grid(axPatch,'on');
-
-hContact = patch('Faces', [], 'Vertices', [], ...
-                 'FaceColor', [1.0 0.2 0.2], ...
-                 'EdgeColor', 'k', ...
-                 'FaceAlpha', 1.0, ...
-                 'Parent', axPatch);
-
-%% =============== TIME LOOP: CONTACT PER FRAME ===================
-for k = 1:N
-    % --- 1) Transform vertices for this frame (relative to base pose) ---
-    Vc_k = transformVertices(cubeRef_V,     T_cube(:,:,k));   % here: identity
-    Vs_k = transformVertices(cylinderRef_V, T_cyl(:,:,k));    % sliding cylinder
-
-    % --- 2) Rebuild body structs from transformed vertices ---
-    cube_k     = buildBodyStruct(Fc, Vc_k);
-    cylinder_k = buildBodyStruct(Fs, Vs_k);
-
-    % Choose master/slave: cube = master, cylinder = slave
-    master = cube_k;
-    slave  = cylinder_k;
-
-    % Build KD-tree on master centroids (same as static STS code)
-    master.kdtree = KDTreeSearcher(master.triCentroid);
-
-    % --- 3) Compute contact using STS solver ---
-    [A_contact, contactMask] = computeContactArea_STS(slave, master, tol, opts);
-    contactAreas(k) = A_contact;
-
-    fprintf('Frame %d/%d: contact area = %.6f, contact tris (slave) = %d\n', ...
-        k, N, A_contact, nnz(contactMask));
-
-    % --- 4) UPDATE FIGURE 1: cube + cylinder with contact highlighted ---
-    if ~isvalid(hCube) || ~isvalid(hCyl)
-        warning('Figure closed by user, stopping animation.');
-        break;
+        patch('Faces', Fs, 'Vertices', Vs_p, ...
+              'FaceVertexCData', faceColors, ...
+              'FaceColor', 'flat', ...
+              'EdgeColor', 'none', ...
+              'FaceAlpha', 0.95, ...
+              'Parent', ax);
     end
-
-    set(hCube, 'Vertices', Vc_k, 'Faces', Fc);
-
-    nFacesSlave   = size(slave.F,1);
-    contactColors = repmat([0.2 0.2 1.0], nFacesSlave, 1);                     % blue
-    contactColors(contactMask,:) = repmat([1.0 0.2 0.2], nnz(contactMask), 1); % red
-
-    set(hCyl, 'Vertices', Vs_k, ...
-              'Faces',    Fs, ...
-              'FaceVertexCData', contactColors, ...
-              'FaceColor', 'flat');
-
-    title(axFull, sprintf('Frame %d/%d, contact area = %.6f', ...
-                          k, N, A_contact));
-
-    % --- 5) UPDATE FIGURE 2: contact patch only on cylinder ---
-    if any(contactMask)
-        F_contact = slave.F(contactMask,:);
-        set(hContact, 'Faces', F_contact, 'Vertices', Vs_k);
-        title(axPatch, sprintf('Contact patch (frame %d/%d, A = %.6f)', ...
-                               k, N, A_contact));
-    else
-        set(hContact, 'Faces', [], 'Vertices', []);
-        title(axPatch, sprintf('Frame %d/%d, NO contact (tol = %.3g)', ...
-                               k, N, tol));
-    end
-
-    drawnow;
-    % pause(0.05); % uncomment to slow down animation
 end
 
-%% =============== PLOT CONTACT AREA VS FRAME ======================
-figure;
-plot(1:numel(contactAreas), contactAreas, '-o');
-xlabel('Frame'); ylabel('Contact area');
-title('Cube–cylinder contact area over time');
-grid on;
-
-
-%% ====== HELPER: APPLY 4x4 TRANSFORM TO VERTEX ARRAY =============
 function V_out = transformVertices(V_in, T)
-    % V_in: Nx3, vertices in local/base frame
-    % T   : 4x4, homogeneous transform (world_from_local)
-    Vh = [V_in, ones(size(V_in,1),1)];  % Nx4
-    Vw = (T * Vh.').';                  % Nx4
+    Vh = [V_in, ones(size(V_in,1),1)];
+    Vw = (T * Vh.').';
     V_out = Vw(:,1:3);
+end
+
+function avgEdge = computeAverageEdgeLength(F, V)
+    E = [F(:,[1 2]); F(:,[2 3]); F(:,[3 1])];
+    E = sort(E,2);
+    E = unique(E,'rows');
+    v1 = V(E(:,1),:);
+    v2 = V(E(:,2),:);
+    edgeVecs = v1 - v2;
+    edgeLens = sqrt(sum(edgeVecs.^2, 2));
+    avgEdge = mean(edgeLens);
 end

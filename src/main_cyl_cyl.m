@@ -1,99 +1,110 @@
-% main_cyl_on_cyl_static.m
-% ------------------------------------------------------------
-% Static cylinder-on-cylinder contact using computeContactArea_STS.
-% - Loads the same cylinder STL twice (bottom + top).
-% - Uses placeCylinderOnCylinder to stack the top cylinder on the bottom.
-% - Computes static contact area (no time loop).
-% ------------------------------------------------------------
+% main_cyl_on_cyl_tolSweep.m
+% Static cylinder-on-cylinder contact; sweep tolerance from 0.05 to 0.5.
 
 clear; clc; close all;
 
-%% ====== FIGURE OUT PROJECT ROOT & PATHS ======
 scriptDir = fileparts(mfilename('fullpath'));
-
-% If this file is in project root, model folder is here; if in src/, go up one level
 if exist(fullfile(scriptDir, 'model'), 'dir')
     projectRoot = scriptDir;
 else
     projectRoot = fileparts(scriptDir);
 end
 
-% Add src (helpers, transforms, etc.) to path
 addpath(genpath(fullfile(projectRoot, 'src')));
 
-% Model directory at project root
 modelDir = fullfile(projectRoot, 'model');
+cylFile  = fullfile(modelDir, 'cylinder 30mm diameter 4 it.stl');
 
-%% ================= USER SETTINGS =======================
-cylFile = fullfile(modelDir, 'cylinder 30mm diameter 4 it.stl');
-
-tol = 0.25;  % contact tolerance (same units as STL)
-
-opts.sampleThreshold   = 0.2;
-opts.neighRadiusFactor = 5.0;
+% Contact options
+opts.sampleThreshold   = 0.5;
+opts.neighRadiusFactor = 2.0;
 opts.maxNeighbours     = 30;
 opts.roiExpandFactor   = 1.5;
 
-%% ====================== LOAD STL MESHES ==========================
 fprintf('Loading cylinder STL twice (bottom + top)...\n');
 [Fbot, Vbot] = loadStlMesh(cylFile, 'bottom');
 [Ftop, Vtop] = loadStlMesh(cylFile, 'top');
 
 fprintf('Mesh loaded: %d vertices, %d faces\n', size(Vbot,1), size(Fbot,1));
 
-%% ========== ALIGN TOP CYLINDER ON BOTTOM CYLINDER ================
-% Use helper to place top cylinder along axis of bottom cylinder.
-% This gives end-to-end "stacked" cylinders, no overlap, no rotation issues.
-
+% Fixed stacked geometry (no sweep in translation, only tol)
 [Vtop_aligned, shift] = placeCylinderOnCylinder(Vtop, Vbot);
 fprintf('Top cylinder translated by [%.4f  %.4f  %.4f]\n', shift);
 
-%% =================== BUILD BODY STRUCTS ==========================
 bottom = buildBodyStruct(Fbot, Vbot);
 top    = buildBodyStruct(Ftop, Vtop_aligned);
 
 fprintf('Bottom total area : %.3f\n', sum(bottom.triArea));
 fprintf('Top total area    : %.3f\n', sum(top.triArea));
 
-%% ============= CHOOSE MASTER / SLAVE SURFACES ====================
-% For stacked cylinder–cylinder: bottom = master, top = slave
 master = bottom;
 slave  = top;
 
 fprintf('Master surface: bottom cylinder\n');
 fprintf('Slave surface : top cylinder\n');
 
-%% ============= COMPUTE CONTACT AREA (SURFACE-TO-SURFACE) =========
+% Build KD-tree once on master (tri centroids as in your original code)
 fprintf('Building KD-tree on master centroids...\n');
 master.kdtree = KDTreeSearcher(master.triCentroid);
 
-fprintf('Computing contact area...\n');
-[contactArea, contactMask] = computeContactArea_STS(slave, master, tol, opts);
+% Tolerance sweep
+tolList = 0.05:0.05:0.5;
+nTol    = numel(tolList);
+A_list  = zeros(nTol,1);
+frac_list = zeros(nTol,1);
+mask_store = false(size(slave.F,1), nTol);  % store masks if you want to inspect later
 
-fprintf('\nEstimated contact area: %.4f\n', contactArea);
-fprintf('Slave triangles in contact: %d\n', nnz(contactMask));
-fprintf('Fraction contact: %.4f\n', nnz(contactMask)/numel(contactMask));
+fprintf('Sweeping tolerance from %.2f to %.2f...\n', tolList(1), tolList(end));
 
-%% ======================= VISUALISATION ===========================
+for k = 1:nTol
+    tol = tolList(k);
+    fprintf('  tol = %.3f ... ', tol);
+    [A_k, mask_k] = computeContactArea_STS(slave, master, tol, opts);
+
+    A_list(k)     = A_k;
+    frac_list(k)  = nnz(mask_k) / numel(mask_k);
+    mask_store(:,k) = mask_k;
+
+    fprintf('A = %.4f, frac = %.4f\n', A_k, frac_list(k));
+end
+
+% Plot contact area vs tolerance
+figure('Color','w'); 
+plot(tolList, A_list, 'o-','LineWidth',1.5);
+xlabel('Tolerance'); ylabel('Contact area');
+title('Cylinder-on-cylinder: contact area vs tolerance');
+grid on;
+
+% Visualise contact for one tolerance (e.g. the largest tol)
+[~, idxShow] = max(tolList);  % or pick a specific index
+tolShow  = tolList(idxShow);
+maskShow = mask_store(:, idxShow);
+
+fprintf('\nVisualising contact for tol = %.3f\n', tolShow);
+
 figure('Color','w'); hold on; axis equal;
-title(sprintf('Static stacked cylinder-on-cylinder (tol = %.3f)', tol), 'Interpreter','none');
+title(sprintf('Cylinder-on-cylinder (tol = %.3f)', tolShow), 'Interpreter','none');
 xlabel X; ylabel Y; zlabel Z;
 
-% Plot master mesh in light grey
-patch('Faces',master.F,'Vertices',master.V,...
-      'FaceColor',[0.8 0.8 0.8],'EdgeColor','none','FaceAlpha',0.3);
+% Master in light grey
+patch('Faces',master.F,'Vertices',master.V, ...
+      'FaceColor',[0.8 0.8 0.8], ...
+      'EdgeColor','none', ...
+      'FaceAlpha',0.3);
 
-% Colour slave triangles by contact status
-contactColors = repmat([0.2 0.2 1.0], size(slave.F,1), 1); % blue
-contactColors(contactMask,:) = repmat([1.0 0.2 0.2], nnz(contactMask), 1); % red
+% Slave: blue by default, red where in contact
+contactColors = repmat([0.0 0.8 1.0], size(slave.F,1), 1);      % blue/cyan
+contactColors(maskShow,:) = repmat([1.0 0.1 0.1], nnz(maskShow), 1); % red
 
-patch('Faces',slave.F,'Vertices',slave.V,...
-      'FaceVertexCData',contactColors,'FaceColor','flat',...
-      'EdgeColor','k','FaceAlpha',0.9);
+patch('Faces',slave.F,'Vertices',slave.V, ...
+      'FaceVertexCData',contactColors, ...
+      'FaceColor','flat', ...
+      'EdgeColor','k', ...
+      'FaceAlpha',0.9);
 
 legend({'Bottom (master)','Top (slave: red = contact)'});
 view(3); camlight; lighting gouraud; grid on;
 
 if exist('showContactOnly','file') == 2
-    showContactOnly(slave, contactMask, tol);
+    showContactOnly(slave, maskShow, tolShow);
 end
