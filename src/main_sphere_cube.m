@@ -1,5 +1,5 @@
-% main_cube_cylinder.m
-% Cube–cylinder contact for two positions over a range of tolerances
+% main_cube_sphere.m
+% Cube–sphere contact for two positions over a range of tolerances
 
 clear; clc;
 
@@ -12,10 +12,9 @@ end
 
 addpath(genpath(fullfile(projectRoot, 'src')));  % helpers, transforms, etc.
 
-modelDir = fullfile(projectRoot, 'model');
-
-cubeFile = fullfile(modelDir, '50mm cube 4 iterations.stl');
-cylFile  = fullfile(modelDir, 'cylinder 30mm diameter 4 it.stl');
+modelDir   = fullfile(projectRoot, 'model');
+cubeFile   = fullfile(modelDir, '50mm cube 4 iterations.stl');
+sphereFile = fullfile(modelDir, '50mm diameter sphere.stl');
 
 tolList = [0.05 0.10 0.20 0.30 0.40 0.50];  % tolerances to test (mm)
 
@@ -25,37 +24,37 @@ opts.maxNeighbours     = 30;
 opts.roiExpandFactor   = 1.5;
 
 % Load meshes
-[Fc, Vc] = loadStlMesh(cubeFile, 'cube');
-[Fs, Vs] = loadStlMesh(cylFile,  'cylinder');
+[Fc, Vc] = loadStlMesh(cubeFile,   'cube');
+[Fs, Vs] = loadStlMesh(sphereFile, 'sphere');
 
-% Place cylinder on cube once (reference configuration)
-[Vs_aligned, cylShift] = placeCylinderOnCube(Vs, Vc);
+% Place sphere on cube once (reference configuration)
+[Vs_aligned, sphereShift] = placeSphereOnCube(Vs, Vc);
 
-cubeRef_V     = Vc;
-cylinderRef_V = Vs_aligned;
+cubeRef_V   = Vc;
+sphereRef_V = Vs_aligned;
 
-cubeRef     = buildBodyStruct(Fc, cubeRef_V);
-cylinderRef = buildBodyStruct(Fs, cylinderRef_V);
+cubeRef   = buildBodyStruct(Fc, cubeRef_V);
+sphereRef = buildBodyStruct(Fs, sphereRef_V);
 
-fprintf('Cube:     %d faces, %d verts\n', size(Fc,1), size(cubeRef_V,1));
-fprintf('Cylinder: %d faces, %d verts\n', size(Fs,1), size(cylinderRef_V,1));
+fprintf('Cube:   %d faces, %d verts\n', size(Fc,1), size(cubeRef_V,1));
+fprintf('Sphere: %d faces, %d verts\n', size(Fs,1), size(sphereRef_V,1));
 
 % Mesh resolutions (average edge length)
-cubeEdge = computeAverageEdgeLength(Fc, cubeRef_V);
-cylEdge  = computeAverageEdgeLength(Fs, cylinderRef_V);
-fprintf('Average edge length (cube):     %.4f mm\n', cubeEdge);
-fprintf('Average edge length (cylinder): %.4f mm\n', cylEdge);
+cubeEdge   = computeAverageEdgeLength(Fc, cubeRef_V);
+sphereEdge = computeAverageEdgeLength(Fs, sphereRef_V);
+fprintf('Average edge length (cube):   %.4f mm\n', cubeEdge);
+fprintf('Average edge length (sphere): %.4f mm\n', sphereEdge);
 
-% Two positions for the cylinder: base and shifted in +X
-Npos = 2;
+% Two positions for the sphere: base and shifted in +X
+Npos  = 2;
 T_cube = repmat(eye(4), 1, 1, Npos);  % cube fixed
 
-T_cyl = repmat(eye(4), 1, 1, Npos);
-T_cyl(:,:,1) = eye(4);                % Position 1: base pose
+T_sph = repmat(eye(4), 1, 1, Npos);
+T_sph(:,:,1) = eye(4);                % Position 1: base pose
 
 T2 = eye(4);
 T2(1,4) = 20.0;                       % Position 2: shift +20 mm in X
-T_cyl(:,:,2) = T2;
+T_sph(:,:,2) = T2;
 
 posLabels = { ...
     'Position 1: base (central contact)', ...
@@ -63,7 +62,7 @@ posLabels = { ...
 
 % Colours
 cubeColor    = [0.8 0.8 0.8];
-cylBaseColor = [0.25 0.25 0.25];    % dark grey
+sphBaseColor = [0.25 0.25 0.25];    % dark grey
 contactColor = [0.0 1.0 0.0];       % neon green
 
 for it = 1:numel(tolList)
@@ -72,15 +71,15 @@ for it = 1:numel(tolList)
 
     for p = 1:Npos
         % Transform vertices for this position
-        Vc_k = transformVertices(cubeRef_V,     T_cube(:,:,p));
-        Vs_k = transformVertices(cylinderRef_V, T_cyl(:,:,p));
+        Vc_k = transformVertices(cubeRef_V,   T_cube(:,:,p));
+        Vs_k = transformVertices(sphereRef_V, T_sph(:,:,p));
 
         % Build body structs
-        cube_k     = buildBodyStruct(Fc, Vc_k);
-        cylinder_k = buildBodyStruct(Fs, Vs_k);
+        cube_k   = buildBodyStruct(Fc, Vc_k);
+        sphere_k = buildBodyStruct(Fs, Vs_k);
 
         master = cube_k;      % cube = master
-        slave  = cylinder_k;  % cylinder = slave
+        slave  = sphere_k;    % sphere = slave
 
         master.kdtree = KDTreeSearcher(master.triCentroid);
 
@@ -107,7 +106,7 @@ for it = 1:numel(tolList)
               'Parent', ax);
 
         nFacesSlave = size(slave.F,1);
-        faceColors  = repmat(cylBaseColor, nFacesSlave, 1);
+        faceColors  = repmat(sphBaseColor, nFacesSlave, 1);
         faceColors(contactMask,:) = repmat(contactColor, nnz(contactMask), 1);
 
         patch('Faces', Fs, 'Vertices', Vs_k, ...

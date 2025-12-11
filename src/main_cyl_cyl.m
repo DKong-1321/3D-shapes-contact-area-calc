@@ -43,16 +43,16 @@ slave  = top;
 fprintf('Master surface: bottom cylinder\n');
 fprintf('Slave surface : top cylinder\n');
 
-% Build KD-tree once on master (tri centroids as in your original code)
+% Build KD-tree once on master
 fprintf('Building KD-tree on master centroids...\n');
 master.kdtree = KDTreeSearcher(master.triCentroid);
 
 % Tolerance sweep
-tolList = 0.05:0.05:0.5;
+tolList = [0.05 0.10 0.20 0.30];
 nTol    = numel(tolList);
 A_list  = zeros(nTol,1);
 frac_list = zeros(nTol,1);
-mask_store = false(size(slave.F,1), nTol);  % store masks if you want to inspect later
+mask_store = false(size(slave.F,1), nTol); 
 
 fprintf('Sweeping tolerance from %.2f to %.2f...\n', tolList(1), tolList(end));
 

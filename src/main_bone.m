@@ -1,23 +1,4 @@
 % main.m
-% Entry point for knee contact simulation using optical transform data.
-%
-% Expected folder structure:
-%   3D-shapes-contact-area-calc/
-%       main.m
-%       model/
-%           femur.stl
-%           tibia.stl
-%           patella.stl
-%       data/
-%           transforms_optical-data.mat
-%       src/
-%           helpers, contact code, etc.
-%
-% Requires on path:
-%   - kneeContactFromTransforms.m
-%   - loadStlMesh.m
-%   - buildBodyStruct.m
-%   - computeContactArea_STS.m
 
 clear; clc; close all;
 
