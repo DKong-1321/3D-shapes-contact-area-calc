@@ -1,10 +1,16 @@
+<<<<<<< Updated upstream
 function main_bone()
 % Use optical transform data as ground-truth poses for femur, tibia,
 % and patella, optionally re-orient the whole knee, then run contact.
+=======
+% main_bone.m
+% Static femur–tibia contact with adaptive tolerance based on min surface gap.
+>>>>>>> Stashed changes
 
     clear; clc;
     scriptDir = fileparts(mfilename('fullpath'));
 
+<<<<<<< Updated upstream
     if exist(fullfile(scriptDir, 'model'), 'dir')
         projectRoot = scriptDir;
     else
@@ -183,4 +189,122 @@ function body = addKDTreeToBody(body)
     V = body.V;
     C = ( V(F(:,1),:) + V(F(:,2),:) + V(F(:,3),:) ) / 3;
     body.kdtree = KDTreeSearcher(C);
+=======
+scriptDir = fileparts(mfilename('fullpath'));
+if exist(fullfile(scriptDir, 'model'), 'dir')
+    projectRoot = scriptDir;
+else
+    projectRoot = fileparts(scriptDir);
+end
+
+modelDir = fullfile(projectRoot, 'model');
+addpath(genpath(fullfile(projectRoot, 'src')));
+
+fprintf("Project root detected: %s\n", projectRoot);
+
+% Load knee bones (use the exact filenames you have)
+femurMesh = stlread(fullfile(modelDir, "Femur.STL"));
+tibiaMesh = stlread(fullfile(modelDir, "Tibia.STL"));
+
+nFrames = 1;
+
+% 4x4xN transforms, start as identities
+T_femur = repmat(eye(4), 1, 1, nFrames);
+T_tibia = repmat(eye(4), 1, 1, nFrames);
+
+% --- Tibia orientation: rotate in coronal plane about Y ---
+y_deg_tibia = 180;  % adjust if CAD tells you otherwise
+Ry = [ cosd(y_deg_tibia)   0   sind(y_deg_tibia);
+       0                   1   0;
+      -sind(y_deg_tibia)   0   cosd(y_deg_tibia) ];
+T_tibia(1:3,1:3,1) = Ry;
+
+% --- Tibia translation: move in Z until condyles are near femur ---
+% Replace this with the CAD-measured value: origin->surface + cartilage.
+offsetZ_tibia = -50;   % mm example; tune this from CAD
+T_tibia(1:3,4,1) = [0; 0; offsetZ_tibia];
+
+% Femur left at identity for now
+% T_femur(:,:,1) = eye(4);
+
+% Apply transforms to vertices
+V_femur_frames = applyTransformSeries(femurMesh.Points, T_femur);
+V_tibia_frames = applyTransformSeries(tibiaMesh.Points, T_tibia);
+
+Vf1 = V_femur_frames(:,:,1);
+Vt1 = V_tibia_frames(:,:,1);
+
+% Build body structs for contact
+femurBody = buildBodyStruct(femurMesh.ConnectivityList, Vf1);
+tibiaBody = buildBodyStruct(tibiaMesh.ConnectivityList, Vt1);
+
+% Contact parameters
+baseTol = 4;
+
+opts.sampleThreshold   = 0.2;
+opts.neighRadiusFactor = 5.0;
+opts.maxNeighbours     = 1000;
+opts.debugPlot         = false;
+
+% Adaptive contact: min gap + baseTol
+%[A_tf, contactMask_tf, tol_eff, d_min] = computeContactArea_adaptiveGap( ...
+ %   tibiaBody, femurBody, baseTol, opts);
+
+%fprintf("Min 3D gap between tibia and femur: %.4f\n", d_min);
+%fprintf("Effective tolerance (gap + baseTol): %.4f\n", tol_eff);
+%fprintf("Tibia–Femur contact area (static pose): %.3f\n", A_tf);
+
+% Adaptive contact: min vertical gap + baseTol
+[A_tf, contactMask_tf, tol_eff, e_min] = computeContactArea_adaptiveGapVertical( ...
+    tibiaBody, femurBody, baseTol, opts);
+
+fprintf("Min vertical gap between tibia and femur (Z): %.4f\n", e_min);
+fprintf("Effective tolerance (gap + baseTol): %.4f\n", tol_eff);
+fprintf("Tibia–Femur contact area (static pose): %.3f\n", A_tf);
+
+
+% Visualise geometry and contact
+figure("Name","Static femur–tibia alignment","Color","w"); hold on;
+
+% Femur
+patch("Faces", femurMesh.ConnectivityList, ...
+      "Vertices", Vf1, ...
+      "FaceColor", [0.8 0.8 0.8], ...
+      "EdgeColor", "none", ...
+      "FaceAlpha", 0.8);
+
+% Tibia (base color)
+Ft_all = tibiaMesh.ConnectivityList;
+patch("Faces", Ft_all, ...
+      "Vertices", Vt1, ...
+      "FaceColor", [0.2 0.4 0.9], ...
+      "EdgeColor", "none", ...
+      "FaceAlpha", 0.4);
+
+% Tibia contact region in neon-ish green
+inContact = contactMask_tf;
+Ft_c = Ft_all(inContact, :);
+if ~isempty(Ft_c)
+    patch("Faces", Ft_c, ...
+          "Vertices", Vt1, ...
+          "FaceColor", [0 1 0], ...  % bright green
+          "EdgeColor", "none", ...
+          "FaceAlpha", 0.9);
+end
+
+axis equal; grid on;
+xlabel("X"); ylabel("Y"); zlabel("Z");
+title(sprintf("Femur–Tibia static pose: A_{TF} = %.3f", A_tf));
+view(60,30); camlight headlight; lighting gouraud;
+
+% If you want the supervisor's coronal-style view:
+% view(0,0);
+
+% Local helper
+function V_frames = applyTransformSeries(V, T)
+    nV  = size(V, 1);
+    Vh  = [V, ones(nV,1)]';      % 4 x nVerts
+    VhN = pagemtimes(T, Vh);     % 4 x nVerts x N
+    V_frames = permute(VhN(1:3,:,:), [2 1 3]);  % nVerts x 3 x N
+>>>>>>> Stashed changes
 end
