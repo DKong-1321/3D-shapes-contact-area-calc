@@ -1,41 +1,37 @@
-function ContactArea_STL_STS_cube_cylinder()
-% ContactArea_STL_STS
-% 
-% General surface-to-surface contact area estimator between two STL meshes.
-%
-% - Uses structs to organise mesh data (faces, vertices, centroids, normals, areas).
-% - Uses a KD-tree on master triangle centroids for fast neighbour search.
-% - Uses a bounding-box Region Of Interest (ROI) to cull triangles far from contact.
-% - Uses a surface-to-surface style rule:
-%       For each slave triangle, sample 3 vertices + centroid,
-%       find nearby master triangles,
-%       compute exact point-to-triangle distance,
-%       mark triangle as "in contact" if enough samples are within tolerance.
-%
-% USER SETTINGS:
-%   - Adjust STL filenames, tolerance, and options in the block below.
-
 clc; close all;
 
+scriptDir = fileparts(mfilename('fullpath'));
+if exist(fullfile(scriptDir,'model'),'dir')
+    projectRoot = scriptDir;
+else
+    projectRoot = fileparts(scriptDir);
+end
+addpath(genpath(fullfile(projectRoot,'src')))
+modelDir = fullfile(projectRoot,'model');
+
 %% ====================== USER SETTINGS ============================
-% STL files
-bodyAFile = '50mm cube 4 iterations.stl';    
-bodyBFile = 'cylinder 30mm diameter 4 it.stl';  
+% STL filenames (EDIT THESE ONLY)
+bodyAName = '50mm cube 4 iterations.stl';
+bodyBName = 'cylinder 30mm diameter 4 it.stl';
+
+% Full paths (do not edit)
+bodyAFile = fullfile(modelDir, bodyAName);
+bodyBFile = fullfile(modelDir, bodyBName);
 
 % Contact tolerance (same units as STL, e.g. mm)
 tol = 0.25;
 
-% Options for the algorithm, variables
-opts.sampleThreshold   = 0.2;    % fraction of samples within tol to call triangle "in contact"
-opts.neighRadiusFactor = 5.0;    % neighbour search radius = factor * tol
-opts.maxNeighbours     = 30;     % max number of candidate master tris per sample point
-opts.roiExpandFactor   = 1.5;    % expand ROI box by this * tol
+% Options for the algorithm
+opts.sampleThreshold   = 0.2;
+opts.neighRadiusFactor = 5.0;
+opts.maxNeighbours     = 30;
+opts.roiExpandFactor   = 1.5;
 
-% Visualisation toggle
 doVisualise = true;
+doDebugPrints = true;
 
-% Debug / tester toggles
-doDebugPrints = true;   % turn on summary prints
+assert(exist(bodyAFile,'file')==2, 'Cannot find STL file: %s', bodyAFile);
+assert(exist(bodyBFile,'file')==2, 'Cannot find STL file: %s', bodyBFile);
 
 %% ====================== LOAD STL MESHES ==========================
 fprintf('Loading STL meshes...\n');
@@ -151,7 +147,6 @@ if doVisualise
     showContactOnly(slave, contactMask, tol);
 end
 
-end % main function
 
 
 %% =================================================================

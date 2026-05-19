@@ -1,0 +1,313 @@
+% analyse_tracking_error.m
+% -------------------------------------------------------------------------
+% Optical-tracking error analysis with STL animation + live contact area.
+%
+% The body was clamped still while the camera was moved around its
+% working volume. For each frame of the recording:
+%   * Transform the femur and tibia STLs into global coords via gTfi/gTti
+%   * Compute their contact area using computeContactArea_STS_hybrid
+%   * Plot both: 3D scene up top, contact area vs frame underneath
+%
+% In a perfect tracking system the contact area would be a flat line —
+% the bones haven't moved physically. Any wobble in the line is camera
+% tracking error propagated into the contact-area output, which is the
+% headline quantity for the thesis.
+%
+% Starts with a TEST_FRAMES short run so it can confirm the contact
+% function works before committing to all 352 / 435 frames.
+% -------------------------------------------------------------------------
+
+clear; clc; close all;x
+
+%% =========================== SETTINGS ============================
+primaryFile  = 'matlab 2.mat';
+projectRoot  = fileparts(mfilename('fullpath'));
+
+femurStlPath = 'Femur-Top 2.stl';
+tibiaStlPath = 'Tibia-bottom 2.stl';
+
+% Contact function and tolerance
+contactFcn    = @computeContactArea_STS_hybrid;  
+contactTol_mm = 0.50;                              % fixed tol for every frame
+
+% Frame subset to run. Start small to confirm it works, then scale up.
+%   testRun = true  -> uses TEST_FRAMES (default 10), evenly spaced across the recording
+%   testRun = false -> uses every Nth frame controlled by frameStep
+testRun     = true;
+TEST_FRAMES = 10;        % only used if testRun = true
+frameStep   = 4;         % only used if testRun = false
+
+% Visual / video settings
+opts.viewAzEl   = [30 20];
+opts.faceAlpha  = 0.85;
+opts.femurColor = [0.85 0.70 0.55];
+opts.tibiaColor = [0.55 0.70 0.85];
+opts.contactColor = [0.90 0.20 0.20];   % colour of triangles in contact
+opts.saveVideo  = true;
+opts.frameRate  = 8;
+
+%% =============================== LOAD =================================
+fprintf('\n=== analyse_tracking_error ===\n');
+assert(exist(primaryFile,'file')==2, 'Cannot find %s', primaryFile);
+S = load(primaryFile);
+K = S.kinematics;
+fprintf('Loaded %s\n', primaryFile);
+
+% Add OpticalTracking lib if present
+try
+    addpath(genpath(fullfile(projectRoot, 'OpticalTracking-dev-3', 'lib')));
+    addpath(genpath(fullfile(projectRoot, 'OpticalTracking-dev-3', 'external')));
+catch
+end
+
+% Verify contact function is reachable
+fcnName = func2str(contactFcn);
+assert(exist(fcnName,'file')==2, ...
+    'Contact function "%s" not found on path. Add the folder containing it before running.', fcnName);
+
+%% =================== STL LOADING ======================================
+[F_femur, V_femur] = tryLoadStl(femurStlPath);
+[F_tibia, V_tibia] = tryLoadStl(tibiaStlPath);
+assert(~isempty(F_femur) && ~isempty(F_tibia), ...
+    'STLs missing — set femurStlPath and tibiaStlPath at the top.');
+fprintf('Loaded STLs: femur %d verts / %d faces, tibia %d verts / %d faces\n', ...
+    size(V_femur,1), size(F_femur,1), size(V_tibia,1), size(F_tibia,1));
+
+%% =================== PICK TRAJECTORY ==================================
+% Both kinematics.trajectories(k) recordings are "model still, camera
+% moved". Process both.
+trajList = K.trajectories;
+for t = 1:numel(trajList)
+    name    = char(trajList(t).LoadingCondition);
+    gTfi    = trajList(t).Transform.gTfi;
+    gTti    = trajList(t).Transform.gTti;
+    nFrames = size(gTfi,3);
+
+    % Build frame list
+    if testRun
+        frames = round(linspace(1, nFrames, TEST_FRAMES));
+        frames = unique(frames);
+        fprintf('\n=== Trajectory %d: %s ===\n   TEST RUN: %d frames out of %d\n', ...
+            t, name, numel(frames), nFrames);
+    else
+        frames = 1:frameStep:nFrames;
+        fprintf('\n=== Trajectory %d: %s ===\n   Every %dth frame: %d of %d\n', ...
+            t, name, frameStep, numel(frames), nFrames);
+    end
+
+    runOneTrajectory(t, name, gTfi, gTti, frames, ...
+        F_femur, V_femur, F_tibia, V_tibia, ...
+        contactFcn, contactTol_mm, opts, projectRoot);
+end
+
+fprintf('\nDone.\n');
+
+%% =======================================================================
+%% =========================== HELPERS ===================================
+%% =======================================================================
+function [F, V] = tryLoadStl(p)
+F = []; V = [];
+if isempty(p) || exist(p,'file') ~= 2, return; end
+try
+    m = stlread(p);
+    F = m.ConnectivityList;
+    V = m.Points;
+catch
+end
+end
+
+% -------------------------------------------------------------------------
+function Vout = applyRigid(T, V)
+Vh = [V ones(size(V,1),1)];
+Vt = (T * Vh.').';
+Vout = Vt(:,1:3);
+end
+
+% -------------------------------------------------------------------------
+function runOneTrajectory(tIdx, condName, gTfi, gTti, frames, ...
+        F_femur, V_femur, F_tibia, V_tibia, ...
+        contactFcn, tol_mm, opts, projectRoot)
+
+nF = numel(frames);
+
+% Precompute all per-frame transformed vertex arrays (one pagemtimes call)
+Vf_h = [V_femur, ones(size(V_femur,1),1)].';   % 4 x Nv
+Vt_h = [V_tibia, ones(size(V_tibia,1),1)].';
+Vf_all = pagemtimes(gTfi(:,:,frames), Vf_h);   % 4 x Nv x nF
+Vt_all = pagemtimes(gTti(:,:,frames), Vt_h);
+
+% Axis limits from full extent across all sampled frames
+allV = [reshape(Vf_all(1:3,:,:),3,[]).'; reshape(Vt_all(1:3,:,:),3,[]).'];
+pad  = 5;
+xlims = [min(allV(:,1))-pad max(allV(:,1))+pad];
+ylims = [min(allV(:,2))-pad max(allV(:,2))+pad];
+zlims = [min(allV(:,3))-pad max(allV(:,3))+pad];
+
+% Figure: 3D view on top, contact-area trace below
+fig = figure('Color','w','Position',[60 60 1200 820]);
+ax3 = subplot(3,1,[1 2],'Parent',fig);
+hold(ax3,'on'); grid(ax3,'on'); axis(ax3,'equal');
+view(ax3, opts.viewAzEl(1), opts.viewAzEl(2));
+xlabel(ax3,'X (mm)'); ylabel(ax3,'Y (mm)'); zlabel(ax3,'Z (mm)');
+xlim(ax3,xlims); ylim(ax3,ylims); zlim(ax3,zlims);
+
+% Initial patches
+hFem = patch(ax3,'Faces',F_femur,'Vertices',Vf_all(1:3,:,1).', ...
+    'FaceColor',opts.femurColor,'EdgeColor','none','FaceAlpha',opts.faceAlpha);
+hTib = patch(ax3,'Faces',F_tibia,'Vertices',Vt_all(1:3,:,1).', ...
+    'FaceColor',opts.tibiaColor,'EdgeColor','none','FaceAlpha',opts.faceAlpha);
+
+% A second tibia patch on top, with only contact faces visible
+hCon = patch(ax3,'Faces', zeros(0,3), 'Vertices', Vt_all(1:3,:,1).', ...
+    'FaceColor',opts.contactColor,'EdgeColor','none','FaceAlpha',1.0);
+
+camlight(ax3); lighting(ax3,'gouraud');
+legend(ax3, [hFem hTib hCon], ...
+    {'Femur (master)','Tibia (slave)','Contact patch'}, 'Location','northeast');
+
+% Contact-area trace below
+axA = subplot(3,1,3,'Parent',fig);
+hold(axA,'on'); grid(axA,'on');
+xlabel(axA,'Frame'); ylabel(axA,'Contact area (mm^2)');
+hAreaLine = plot(axA, nan, nan, '-o', 'LineWidth',1.4, ...
+    'Color',[0.20 0.40 0.85], 'MarkerFaceColor',[0.20 0.40 0.85], 'MarkerSize',5);
+hCurMark  = plot(axA, nan, nan, 'ro', 'MarkerSize',9, 'LineWidth',1.5);
+xlim(axA, [frames(1)-1 frames(end)+1]);
+
+hTitle = sgtitle(fig, sprintf('%s   |   tol=%.3f mm   |   frame %d / %d', ...
+    condName, tol_mm, frames(1), frames(end)), 'Interpreter','none');
+
+% Video writer
+vw = [];
+if opts.saveVideo
+    safeName  = matlab.lang.makeValidName(condName);
+    videoFile = fullfile(projectRoot, sprintf('tracking_contact_%s.mp4', safeName));
+    try
+        vw = VideoWriter(videoFile, 'MPEG-4');
+    catch
+        videoFile = fullfile(projectRoot, sprintf('tracking_contact_%s.avi', safeName));
+        vw = VideoWriter(videoFile);
+    end
+    vw.FrameRate = opts.frameRate;
+    open(vw);
+end
+
+% Output container
+A_per_frame = nan(nF,1);
+
+% Frame loop
+t0 = tic;
+for k = 1:nF
+    Vf_k = Vf_all(1:3,:,k).';      % Nv x 3
+    Vt_k = Vt_all(1:3,:,k).';
+
+    % Build body structs for the contact function
+    master = buildBodyStruct(F_femur, Vf_k);
+    slave  = buildBodyStruct(F_tibia, Vt_k);
+
+    % Call contact function
+    try
+        res = contactFcn(master, slave, tol_mm);
+    catch ME1
+        % Fall back to (master, slave, opts) signature if needed
+        try
+            res = contactFcn(master, slave, struct('tol', tol_mm));
+        catch ME2
+            error(['Contact function call failed both ways:\n' ...
+                   '  (master,slave,tol) -> %s\n' ...
+                   '  (master,slave,opts) -> %s\n' ...
+                   'Inspect the function signature and adjust this script.'], ...
+                   ME1.message, ME2.message);
+        end
+    end
+
+    % Extract area + contact mask defensively (try common field names)
+    A_k = pickField(res, {'contactArea','area','A_total','A','contact_area'});
+    if isnan(A_k)
+        error('Could not find a contact-area field on the result. Fields: %s', ...
+            strjoin(fieldnames(res), ', '));
+    end
+    A_per_frame(k) = A_k;
+
+    mask = pickField(res, {'contactMask','mask','contact_mask','inContact','slaveMask'});
+    if ~isnan(mask)
+        % `mask` was returned as a 1x1 NaN by pickField if not found; logical otherwise
+    else
+        mask = [];
+    end
+
+    % Update geometry
+    set(hFem, 'Vertices', Vf_k);
+    set(hTib, 'Vertices', Vt_k);
+    if islogical(mask) || (isnumeric(mask) && any(mask(:)~=0))
+        m = logical(mask);
+        if numel(m) == size(F_tibia,1)
+            set(hCon, 'Faces', F_tibia(m,:), 'Vertices', Vt_k);
+        else
+            set(hCon, 'Faces', zeros(0,3));
+        end
+    else
+        set(hCon, 'Faces', zeros(0,3));
+    end
+
+    % Update area trace
+    set(hAreaLine, 'XData', frames(1:k), 'YData', A_per_frame(1:k));
+    set(hCurMark,  'XData', frames(k),   'YData', A_per_frame(k));
+    if all(isnan(A_per_frame)) || all(A_per_frame == 0)
+        % keep autoy
+    else
+        ylim(axA,'auto');
+    end
+
+    set(hTitle, 'String', sprintf('%s   |   tol=%.3f mm   |   frame %d / %d   |   A = %.2f mm^2', ...
+        condName, tol_mm, frames(k), frames(end), A_per_frame(k)));
+    drawnow;
+
+    if ~isempty(vw), writeVideo(vw, getframe(fig)); end
+
+    fprintf('  frame %3d / %3d   (recording frame %4d)   A = %8.2f mm^2   t = %5.1fs\n', ...
+        k, nF, frames(k), A_per_frame(k), toc(t0));
+end
+
+if ~isempty(vw)
+    close(vw);
+    fprintf('  Saved video: tracking_contact_%s.mp4\n', condName);
+end
+
+% Stats
+A_mean = mean(A_per_frame,'omitnan');
+A_std  = std(A_per_frame, 0, 'omitnan');
+A_rms  = sqrt(mean((A_per_frame - A_mean).^2,'omitnan'));
+A_p95  = prctile(abs(A_per_frame - A_mean), 95);
+fprintf('\nTrajectory %d (%s) summary (tol=%.3f mm):\n', tIdx, condName, tol_mm);
+fprintf('  mean A = %.3f mm^2   std A = %.3f mm^2   RMS deviation = %.3f mm^2   p95 |dev| = %.3f mm^2\n', ...
+    A_mean, A_std, A_rms, A_p95);
+
+% Save CSV of per-frame area
+csvFile = fullfile(projectRoot, sprintf('contact_area_per_frame_%s.csv', condName));
+Tcsv = table(frames(:), A_per_frame, 'VariableNames', {'frame','contactArea_mm2'});
+writetable(Tcsv, csvFile);
+fprintf('  Saved CSV : %s\n', csvFile);
+
+% Final overlay-only area figure (clean for thesis)
+figA = figure('Color','w'); plot(frames, A_per_frame, '-o', 'LineWidth',1.4); grid on;
+xlabel('Frame'); ylabel('Contact area (mm^2)');
+title(sprintf('%s — contact area vs frame  (mean %.2f  std %.3f mm^2)', condName, A_mean, A_std), ...
+    'Interpreter','none');
+yline(A_mean,'--k','DisplayName',sprintf('mean = %.2f', A_mean));
+legend('Location','best');
+pngFile = fullfile(projectRoot, sprintf('contact_area_trace_%s.png', condName));
+exportgraphics(figA, pngFile, 'Resolution', 200);
+fprintf('  Saved PNG : %s\n', pngFile);
+end
+
+% -------------------------------------------------------------------------
+function v = pickField(s, candidates)
+% Returns the first field on s whose name is in candidates, else NaN.
+v = nan;
+for i = 1:numel(candidates)
+    if isfield(s, candidates{i})
+        v = s.(candidates{i}); return;
+    end
+end
+end

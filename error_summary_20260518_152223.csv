@@ -1,0 +1,15 @@
+source,landmark,n,rms_mm,p95_mm,max_mm
+within_touch,tibia.medial,14,0.162875641179995,0.315446216864677,0.337377740516057
+within_touch,tibia.lateral,18,0.186368942466408,0.342861500351805,0.345063851668498
+within_touch,tibia.distal,17,0.155414525513171,0.28433381396113,0.303905996438637
+within_touch,femur.medial,18,0.088412071825293,0.178226530935119,0.182862805282145
+within_touch,femur.lateral,18,0.192337698133913,0.32901147575826,0.365717846447118
+within_touch,femur.proximal,18,0.119158740995163,0.239084054056501,0.261247062716146
+tracking_static_combinedbody_camera_motion_femur,femur,332,251.282852421498,537.601640724274,630.847905354189
+tracking_static_combinedbody_camera_motion_tibia,tibia,219,116.115030242495,242.020480063225,301.955845240759
+tracking_static_combinedbody_camera_motion_forbak_femur,femur,435,313.873433577832,490.165717078428,534.736923018518
+tracking_static_combinedbody_camera_motion_forbak_tibia,tibia,297,216.504507300241,325.201955551218,365.768527245854
+overall,sigma_within_touch,NaN,0.15076127001899,NaN,NaN
+overall,sigma_between_session,NaN,0.15076127001899,NaN,NaN
+overall,sigma_tracking,NaN,250.786045146172,NaN,NaN
+overall,sigma_combined,NaN,250.786090461609,NaN,NaN

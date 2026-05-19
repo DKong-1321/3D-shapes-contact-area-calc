@@ -1,0 +1,56 @@
+% inspect_tracker_measurements.m
+% -------------------------------------------------------------------------
+% Dumps the 18 measurements per landmark so we can see how repeats are
+% laid out along that axis (5 digitisation + camera-moved + ?, or all 18
+% are camera frames of a probe-stationary experiment, etc).
+% -------------------------------------------------------------------------
+clear; clc;
+
+S = load('matlab  2.mat');
+D = S.digitisation;
+b = D.bone;
+
+bones = fieldnames(b);
+
+for ib = 1:numel(bones)
+    boneName = bones{ib};
+    lms = fieldnames(b.(boneName));
+    for il = 1:numel(lms)
+        lmName = lms{il};
+        obj = b.(boneName).(lmName);          % Option
+        tr  = obj.unwrap();                   % Tracker
+        Tx = tr.Tx; Ty = tr.Ty; Tz = tr.Tz; Er = tr.Error;
+        landmark = sprintf('%s.%s', boneName, lmName);
+
+        % Where does this land in space? Are they all near the same point
+        % (= repeats of one landmark) or do they sweep through space (= a
+        % motion trajectory)?
+        muT = [mean(Tx,'omitnan') mean(Ty,'omitnan') mean(Tz,'omitnan')];
+        sT  = [std(Tx,'omitnan')  std(Ty,'omitnan')  std(Tz,'omitnan')];
+
+        fprintf('\n=== %s   (Landmark code: "%s",  Name: "%s") ===\n', ...
+            landmark, tr.Landmark, tr.Name);
+        fprintf('  mean position : [%9.3f %9.3f %9.3f]\n', muT);
+        fprintf('  per-axis std  : [%9.3f %9.3f %9.3f]   total RMS = %.3f mm\n', ...
+            sT, sqrt(mean(sum([Tx-muT(1) Ty-muT(2) Tz-muT(3)].^2,2),'omitnan')));
+        fprintf('  Error col stats: min=%.4f  median=%.4f  max=%.4f\n', ...
+            min(Er,[],'omitnan'), median(Er,'omitnan'), max(Er,[],'omitnan'));
+
+        fprintf('  Row-by-row:\n');
+        fprintf('  %3s  %10s %10s %10s  %10s\n','i','Tx','Ty','Tz','Error');
+        for i = 1:numel(Tx)
+            fprintf('  %3d  %10.3f %10.3f %10.3f  %10.4f\n', ...
+                i, Tx(i), Ty(i), Tz(i), Er(i));
+        end
+    end
+end
+
+fprintf('\n=== done ===\n');
+fprintf(['\nWhat to look for:\n', ...
+  '  - For digitisation repeats of the SAME anatomical point, Tx/Ty/Tz\n', ...
+  '    should jitter within ~mm around a centroid (per-axis std small).\n', ...
+  '  - For a camera-moved-but-point-still experiment, Tx/Ty/Tz might\n', ...
+  '    drift gradually (or jump) as the camera enters/leaves limits;\n', ...
+  '    Error column often spikes near the limit.\n', ...
+  '  - If all 18 look identical (zero std), the .mat may have already\n', ...
+  '    averaged them. Tell me and we''ll go after the raw file.\n']);
