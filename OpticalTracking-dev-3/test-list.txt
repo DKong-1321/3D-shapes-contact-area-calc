@@ -1,0 +1,256 @@
+├── Cuts
+│   ├── Lateral-ACL_ACLR_ALL_KF_LM
+│   │   ├── SN06_2405766M_RK
+│   │   │   ├── ACL_cut
+│   │   │   ├── ACL_recon
+│   │   │   ├── ALL_cut
+│   │   │   ├── KF_cut
+│   │   │   ├── LM_cut
+│   │   │   └── Native
+│   │   ├── SN17_2409310M_LK
+│   │   │   ├── ACL_cut
+│   │   │   ├── ACL_recon
+│   │   │   ├── ALL_cut
+│   │   │   ├── KF_cut
+│   │   │   ├── LM_cut
+│   │   │   ├── Native
+│   │   │   └── Intact_1
+│   │   └── SN18_2410432_LK
+│   │       ├── ACL_cut
+│   │       ├── ALL_cut
+│   │       ├── KF_cut
+│   │       ├── LM_cut
+│   │       └── Native
+│   ├── Lateral-ACL_ACLR_KF_LM_ALL
+│   │   ├── SN29_2410450N_RK
+│   │   │   ├── ACL_cut
+│   │   │   ├── ACL_recon
+│   │   │   ├── ALL_cut
+│   │   │   ├── KF_cut
+│   │   │   ├── LM_cut
+│   │   │   └── Native
+│   │   └── SN31_2410448M_RK
+│   │       ├── ACL_cut
+│   │       ├── ACL_recon
+│   │       ├── ALL_cut
+│   │       ├── KF_cut
+│   │       ├── LM_cut
+│   │       └── Native
+│   ├── Lateral-ACL_ACLR_LM_ALL_KF
+│   │   ├── SN02_2405656F_LK
+│   │   │   ├── KF_cut
+│   │   │   └── KF_cut_2
+│   │   │   ├── ACL_cut
+│   │   │   ├── ACL_reconstruction
+│   │   │   ├── ALL_cut
+│   │   │   ├── LM_cut
+│   │   │   └── Native
+│   │   ├── SN08_2403390M_1_RK
+│   │   │   ├── ACL_cut
+│   │   │   ├── Native
+│   │   │   ├── ACL_recon
+│   │   │   ├── ALL_cut
+│   │   │   ├── KF_cut
+│   │   │   └── LM_cut
+│   │   └── SN10_2403402F_LK
+│   │       ├── ACL_cut
+│   │       ├── ACL_recon
+│   │       ├── ALL_cut
+│   │       ├── All_states
+│   │       ├── KF_cut
+│   │       ├── LM_cut
+│   │       └── Native
+│   ├── Medial-ACL_ACLR_MCL_POL_MM
+│   │   ├── SN04_2405655F_RK kinematics
+│   │   │   ├── ACL_cut
+│   │   │   ├── MCL_cut
+│   │   │   ├── MM_cut
+│   │   │   ├── Native
+│   │   │   └── POL_cut
+│   │   ├── SN05_2405656F_RK kinematics
+│   │   │   ├── ACL_cut
+│   │   │   ├── MCL_cut
+│   │   │   ├── MM_cut
+│   │   │   ├── Native
+│   │   │   └── POL_cut
+│   │   ├── SN09_2403390M_LK kinematics
+│   │   │   ├── ACL_cut
+│   │   │   ├── MCL_cut
+│   │   │   ├── MM_cut
+│   │   │   ├── Native
+│   │   │   └── POL_cut
+│   ├── Medial-ACL_ACLR_MM_MCL_POL
+│   │   ├── SN20_2410450N_LK kinematics
+│   │   │   ├── ACL_cut
+│   │   │   ├── MCL_cut
+│   │   │   ├── MM_cut
+│   │   │   ├── Native
+│   │   │   └── POL_cut
+│   │   └── SN27_2410432_RK kinematics
+│   │       ├── POL_cut
+│   │       ├── ACL_cut
+│   │       ├── MCL_cut
+│   │       ├── MM_cut
+│   │       └── Native
+│   └── Medial-ACL_ACLR_POL_MM_MCL
+│       ├── SN03_2405766M_LK KINEMATICS
+│       │   ├── ACL_cut
+│       │   ├── MCL_cut
+│       │   ├── MM_cut
+│       │   ├── Native
+│       │   └── POL_cut
+│       ├── SN07_2403402F_RK KINEMATICS
+│       │   ├── ACL_cut
+│       │   ├── MCL_cut
+│       │   ├── MM_cut
+│       │   ├── Native
+│       │   └── POL_cut
+│       └── SN24_2409310M_RK kinematics
+│           ├── ACL_cut
+│           ├── MCL_cut
+│           ├── MM_cut
+│           ├── Native
+│           └── POL_cut
+└── Repair
+    ├── Lateral-all_let_lm_everything
+    │   ├── SN06_2405766M_RK
+    │   │   ├── ACL_recon
+    │   │   ├── ACLR_KF_ALL_LM_cut
+    │   │   ├── ALL_recon
+    │   │   ├── Everything_recon
+    │   │   ├── LM_repair
+    │   │   ├── KF_recon
+    │   │   └── Native
+    │   ├── SN17_2409310M_LK
+    │   │   ├── ACL_recon
+    │   │   ├── ACLR_KF_ALL_LM_cut
+    │   │   ├── ALL_recon
+    │   │   ├── Everything_recon
+    │   │   ├── KF_recon
+    │   │   ├── LM_repair
+    │   │   ├── Native
+    │   │   └── Intact_1
+    │   └── SN18_2410432_LK
+    │       ├── ACL_recon
+    │       ├── ACLR_KF_ALL_LM_cut
+    │       ├── ALL_recon
+    │       ├── Everything_recon
+    │       ├── KF_recon
+    │       ├── LM_repair
+    │       └── Native
+    ├── Lateral-let_lm_all_everything
+    │   ├── SN29_2410450N_RK
+    │   │   ├── ACL_recon
+    │   │   ├── ACLR_KF_ALL_LM_cut
+    │   │   ├── ALL_recon
+    │   │   ├── Everything_recon
+    │   │   ├── KF_recon
+    │   │   ├── LM_repair
+    │   │   └── Native
+    │   └── SN31_2410448M_RK
+    │       ├── ACL_reconstruction
+    │       ├── ACLR_KF_ALL_LM_cut
+    │       ├── ALL_recon
+    │       ├── Everything_recon
+    │       ├── KF_recon
+    │       ├── LM_repair
+    │       └── Native
+    ├── Lateral-lm_all_let_everything
+    │   ├── SN02_2405656F_2_LK
+    │   │   ├── ACLR_KF_ALL_LM_cut
+    │   │   ├── ACLR_KF_ALL_LM_cut_2
+    │   │   ├── ALL_reconstruction
+    │   │   ├── everything_recon
+    │   │   ├── KF_reconstruction
+    │   │   └── LM_repair
+    │   ├── SN02_2405656F_LK
+    │   │   ├── ACL_reconstruction
+    │   │   └── Native
+    │   ├── SN08_2403390M_1_RK
+    │   │   ├── Native
+    │   │   ├── ACL_recon
+    │   │   ├── ACLR_KF_ALL_LM_cut
+    │   │   ├── ALL_recon
+    │   │   ├── Everything_recon
+    │   │   ├── KF_recon
+    │   │   └── LM_repair
+    │   └── SN10_2403402F_LK
+    │       ├── ACL_reconstruction
+    │       ├── ACLR_KF_ALL_LM_cut
+    │       ├── ALL_reconstruction
+    │       ├── All_states
+    │       ├── KF_reconstruction
+    │       ├── LM_repair
+    │       └── Native
+    ├── Medial-mcl_pol_mm_everything
+    │   ├── SN04_2405655F_RK kinematics
+    │   │   ├── ACL_recon
+    │   │   ├── ACLR_MCL_POL_MM_cut
+    │   │   ├── Everything_recon
+    │   │   ├── MCL_recon
+    │   │   ├── MM_repair
+    │   │   ├── Native
+    │   │   ├── POL_recon
+    │   │   ├── Everything_recon
+    │   │   ├── MCL_recon
+    │   │   └── POL_recon
+    │   ├── SN05_2405656F_RK kinematics
+    │   │   ├── ACL_recon
+    │   │   ├── ACLR_MCL_POL_MM_cut
+    │   │   ├── Everything_recon
+    │   │   ├── MCL_recon
+    │   │   ├── MM_repair
+    │   │   ├── Native
+    │   │   └── POL_recon
+    │   ├── SN09_2403390M_LK kinematics
+    │   │   ├── ACL_recon
+    │   │   ├── ACLR_MCL_POL_MM_cut
+    │   │   ├── Everything_recon
+    │   │   ├── MCL_recon
+    │   │   ├── MM_repair
+    │   │   ├── Native
+    │   │   ├── Everything_recon
+    │   │   ├── MCL_recon
+    │   │   ├── POL_recon
+    │   │   └── POL_recon
+    │   └── SN27_2410432_2_RK
+    │       ├── ACLR_MCL_POL_MM_cut
+    │       ├── Everything_recon
+    │       ├── MCL_recon
+    │       ├── MM_repair
+    │       ├── POL_recon
+    │       ├── ACL_recon
+    │       └── Native
+    └── Medial-pol_mcl_mm_everything
+        ├── SN03_2405766M_2_LK
+        │   ├── Everything_recon
+        │   ├── MCL_recon
+        │   ├── MM_repair
+        │   ├── POL_recon
+        │   ├── ACL_recon
+        │   ├── ACLR_MCL_POL_MM_cut
+        │   └── Native
+        ├── SN07_2403402F_RK KINEMATICS
+        │   ├── ACL_recon
+        │   ├── ACLR_MCL_POL_MM_cut
+        │   ├── Everything_recon
+        │   ├── MCL_recon
+        │   ├── MM_repair
+        │   ├── Native
+        │   └── POL_recon
+        ├── SN20_LK
+        │   ├── ACL_recon
+        │   ├── ACLR_MCL_POL_MM_cut
+        │   ├── Everything_recon
+        │   ├── MCL_recon
+        │   ├── Native
+        │   └── POL_recon
+        │   └── MM_repair
+        └── SN24_2409310M_RK kinematics
+            ├── ACL_recon
+            ├── ACLR_MCL_POL_MM_cut
+            ├── Everything_recon
+            ├── MCL_recon
+            ├── MM_repair
+            ├── Native
+            └── POL_recon
